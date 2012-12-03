@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"math"
 	"net/http"
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -63,26 +65,28 @@ func getVC(permalink string) {
 		return
 	}
 
-	vc.RoundsByCode = make(map[string]int)
-	vc.RoundsByYear = make(map[int]int)
-	vc.RoundsByCompany = make(map[string]int)
-	vc.CompaniesByYear = make(map[int]int)
-	vc.RoundShares = make(sort.IntSlice, 0, len(vc.Investments))
-	vc.RoundSizes = make(sort.IntSlice, len(vc.Investments))
+	vc.RoundsByCode = make(map[string]int64)
+	vc.RoundsByYear = make(map[int]int64)
+	vc.RoundsByCompany = make(map[string]int64)
+	vc.CompaniesByYear = make(map[int]int64)
+	vc.RoundShares = make(IntSlice, 0, len(vc.Investments))
+	vc.RoundSizes = make(IntSlice, 0, len(vc.Investments))
 	vc.Partners = make(map[*VC]*Partner)
+	vc.PartnersByRound = make(map[string][]int64)
 
 	companiesByYear := make(map[int]map[string]bool)
 
-	for i, inv := range vc.Investments {
+	for _, inv := range vc.Investments {
 		r := inv.Round
 		cp := r.Company.Permalink
+		rid := cp + "-" + r.Code
 
 		if _, ok := vc.RoundsByCode[r.Code]; !ok {
 			vc.RoundsByCode[r.Code] = 0
 		}
 		vc.RoundsByCode[r.Code] += 1
 
-		if r.Year != nil {
+		if r.Year != nil && *r.Year > 2004 {
 			year := *r.Year
 			if _, ok := vc.RoundsByYear[year]; !ok {
 				vc.RoundsByYear[year] = 0
@@ -100,33 +104,51 @@ func getVC(permalink string) {
 		}
 		vc.RoundsByCompany[cp] += 1
 
-		if inv.Round.Amount != nil {
-			vc.RoundSizes[i] = int(*inv.Round.Amount)
+		if inv.Round.Amount != nil && *inv.Round.Amount >= 1 {
+			vc.RoundSizes = append(vc.RoundSizes, int64(*inv.Round.Amount))
 		}
 
 		IndexMutex.Lock()
-		RoundVCs[*r] = append(RoundVCs[*r], vc)
+		RoundVCs[rid] = append(RoundVCs[rid], vc)
+		Rounds[rid] = *r
 		IndexMutex.Unlock()
 	}
 
 	vc.RoundSizes.Sort()
 
 	for year, companies := range companiesByYear {
-		vc.CompaniesByYear[year] = len(companies)
+		vc.CompaniesByYear[year] = int64(len(companies))
 	}
 	vc.TotalCompanies = len(vc.RoundsByCompany)
 
-	vc.YearRoundSet = make(sort.IntSlice, 0, len(vc.RoundsByYear))
+	vc.YearRoundSet = make(IntSlice, 0, len(vc.RoundsByYear))
 	for _, x := range vc.RoundsByYear {
-		vc.YearRoundSet = append(vc.YearRoundSet, x)
+		vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
 	}
 	vc.YearRoundSet.Sort()
 
-	vc.YearCompanySet = make(sort.IntSlice, 0, len(vc.RoundsByCompany))
-	for _, x := range vc.RoundsByCompany {
-		vc.YearCompanySet = append(vc.YearCompanySet, x)
+	vc.YearCompanySet = make(IntSlice, 0, len(vc.CompaniesByYear))
+	for _, x := range vc.CompaniesByYear {
+		vc.YearCompanySet = append(vc.YearCompanySet, int64(x))
 	}
 	vc.YearCompanySet.Sort()
+
+	vc.SeriesDist.Buckets = make([]BucketedInt, 0, len(vc.RoundsByCode))
+	for _, b := range RoundCodeBuckets {
+		if c, ok := vc.RoundsByCode[strings.ToLower(b)]; ok {
+			if c > vc.SeriesDist.Max {
+				vc.SeriesDist.Max = c
+			}
+			vc.SeriesDist.Buckets = append(vc.SeriesDist.Buckets, BucketedInt{b, c})
+		}
+	}
+
+	cs := make([]int64, 0, len(vc.RoundsByCompany))
+	for _, i := range vc.RoundsByCompany {
+		cs = append(cs, int64(i))
+	}
+	vc.RoundCountDist = RoundCountBuckets.Aggregate(cs)
+	vc.RaiseDist = RoundSizeBuckets.Aggregate(vc.RoundSizes)
 
 	IndexMutex.Lock()
 	VCs[vc.Permalink] = vc
@@ -137,7 +159,9 @@ func calculateVCs() {
 	IndexMutex.RLock()
 	defer IndexMutex.RUnlock()
 
-	for r, vcs := range RoundVCs {
+	for rid, vcs := range RoundVCs {
+		r := Rounds[rid]
+
 		agg := func(vc *VC) {
 			for _, v := range vcs {
 				if v.Permalink == vc.Permalink {
@@ -145,7 +169,8 @@ func calculateVCs() {
 				}
 
 				var p *Partner
-				if p, ok := vc.Partners[v]; !ok {
+				var ok bool
+				if p, ok = vc.Partners[v]; !ok {
 					p = &Partner{VC: v}
 					vc.Partners[v] = p
 				}
@@ -162,9 +187,16 @@ func calculateVCs() {
 				}
 			}
 
-			if r.Amount != nil {
-				vc.RoundShares = append(vc.RoundShares, int(math.Floor(*r.Amount/float64(len(vcs))+0.5)))
+			if r.Amount != nil && *r.Amount >= 1 {
+				vc.RoundShares = append(vc.RoundShares, Roundf(*r.Amount/float64(len(vcs))))
 			}
+
+			vc.PartnerCountSet = append(vc.PartnerCountSet, int64(len(vcs)))
+
+			if _, ok := vc.PartnersByRound[r.Code]; !ok {
+				vc.PartnersByRound[r.Code] = make([]int64, 0, 1)
+			}
+			vc.PartnersByRound[r.Code] = append(vc.PartnersByRound[r.Code], int64(len(vcs))-1)
 		}
 
 		for _, vc := range vcs {
@@ -174,10 +206,11 @@ func calculateVCs() {
 
 	for _, vc := range VCs {
 		vc.RoundShares.Sort()
+		vc.ShareDist = RoundShareBuckets.Aggregate(vc.RoundShares)
 
 		vc.PartnerList = make(PartnerList, 0, len(vc.Partners))
 		for _, p := range vc.Partners {
-			r := 0
+			var r int64
 			for y := p.FirstYear; y <= p.LastYear; y++ {
 				r += p.VC.RoundsByYear[y]
 			}
@@ -185,6 +218,17 @@ func calculateVCs() {
 			vc.PartnerList = append(vc.PartnerList, p)
 		}
 		sort.Sort(vc.PartnerList)
+
+		vc.InvestorRoundDist.Buckets = make([]BucketedInt, 0, len(vc.PartnersByRound))
+		for _, b := range RoundCodeBuckets {
+			if cs, ok := vc.PartnersByRound[strings.ToLower(b)]; ok {
+				c := Roundf(Mean(cs))
+				if c > vc.InvestorRoundDist.Max {
+					vc.InvestorRoundDist.Max = c
+				}
+				vc.InvestorRoundDist.Buckets = append(vc.InvestorRoundDist.Buckets, BucketedInt{b, c})
+			}
+		}
 	}
 }
 
@@ -193,16 +237,25 @@ type VC struct {
 	Permalink string  `json:"permalink"`
 	URL       *string `json:"homepage_url"`
 
-	RoundsByCode    map[string]int
-	RoundsByYear    map[int]int
-	RoundsByCompany map[string]int
-	CompaniesByYear map[int]int
+	RoundsByCode    map[string]int64
+	RoundsByYear    map[int]int64
+	RoundsByCompany map[string]int64
+	CompaniesByYear map[int]int64
 	Partners        map[*VC]*Partner
 
-	RoundShares    sort.IntSlice
-	RoundSizes     sort.IntSlice
-	YearCompanySet sort.IntSlice
-	YearRoundSet   sort.IntSlice
+	RoundShares    IntSlice
+	RoundSizes     IntSlice
+	YearCompanySet IntSlice
+	YearRoundSet   IntSlice
+
+	PartnerCountSet []int64
+	PartnersByRound map[string][]int64
+
+	SeriesDist        BucketedInts
+	RoundCountDist    BucketedInts
+	RaiseDist         BucketedInts
+	ShareDist         BucketedInts
+	InvestorRoundDist BucketedInts
 
 	PartnerList PartnerList
 
@@ -240,49 +293,32 @@ func (p PartnerList) Len() int           { return len(p) }
 func (p PartnerList) Less(i, j int) bool { return p[i].Rounds < p[j].Rounds }
 func (p PartnerList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+type BucketedInts struct {
+	Max     int64
+	Buckets []BucketedInt
+}
+
+type BucketedInt struct {
+	Name  string
+	Count int64
+}
+
+var (
+	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
+	RoundSizeBuckets  = Buckets("<500k", "500-999k", "1-1.49m", "1.5-2.9m", "3-6.9m", "7-14.9m", "15-29.9m", ">30m")
+	RoundShareBuckets = Buckets("<50k", "50-149k", "150-499k", "500k-1.9m", "2-4.9m", "5-9.9m", ">10m")
+	RoundCountBuckets = Buckets("1", "2", "3", "4", "5", "6")
+)
+
 var (
 	IndexMutex = new(sync.RWMutex)
 	VCs        = make(map[string]*VC)
-	RoundVCs   = make(map[Round][]*VC)
+	RoundVCs   = make(map[string][]*VC)
+	Rounds     = make(map[string]Round)
 )
 
 func apiURL(path string) string {
 	return BaseURL + path + "?api_key=" + *apiKey
-}
-
-func Mean(p sort.IntSlice) (a float64) {
-	if len(p) == 0 {
-		return 0
-	}
-	for _, x := range p {
-		a += float64(x)
-	}
-	return a / float64(len(p))
-}
-
-func Median(p sort.IntSlice) float64 {
-	if len(p) == 0 {
-		return 0
-	}
-	if len(p)%2 != 0 {
-		return float64(p[len(p)/2])
-	}
-	i := len(p) / 2
-	return float64(p[i]+p[i+1]) / 2
-}
-
-func First(p sort.IntSlice) int {
-	if len(p) == 0 {
-		return 0
-	}
-	return p[0]
-}
-
-func Last(p sort.IntSlice) int {
-	if len(p) == 0 {
-		return 0
-	}
-	return p[len(p)-1]
 }
 
 func MaybePanic(err error) {
@@ -306,9 +342,36 @@ func Get(path string) (io.ReadCloser, error) {
 	return os.Open(*dataPath + "/" + path + ".json")
 }
 
-func fetcher(queue chan string) {
+func fetcher(queue chan string, done chan bool) {
 	for permalink := range queue {
 		getVC(permalink)
+	}
+	done <- true
+}
+
+func render(t *template.Template, vc *VC) error {
+	f, err := os.Create("output/" + vc.Permalink + ".html")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = t.ExecuteTemplate(f, "vc.html", vc)
+	return err
+}
+
+func renderer(t *template.Template, queue chan *VC, done chan bool) {
+	for vc := range queue {
+		err := render(t, vc)
+		if err != nil {
+			fmt.Printf("render error: %s\n", err)
+		}
+	}
+	done <- true
+}
+
+func waitDone(done chan bool) {
+	for i := 0; i < *concurrency; i++ {
+		<-done
 	}
 }
 
@@ -316,9 +379,10 @@ func main() {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	done := make(chan bool, *concurrency)
 	queue := make(chan string)
 	for i := 0; i < *concurrency; i++ {
-		go fetcher(queue)
+		go fetcher(queue, done)
 	}
 
 	list := getVCList()
@@ -326,5 +390,32 @@ func main() {
 		queue <- vc.Link
 	}
 	close(queue)
+	waitDone(done)
+
 	calculateVCs()
+
+	t := template.Must(template.New("vc").Funcs(template.FuncMap{
+		"first":  First,
+		"last":   Last,
+		"mean":   Mean,
+		"median": Median,
+		"sum":    Sum,
+		"pround": PrettyRound,
+		"itof":   Itof,
+		"barh":   BarHeight,
+		"barml":  BarMarginLabel,
+		"barmp":  BarMarginPadding,
+		"barmh":  BarMarginHeight,
+	}).ParseFiles("templates/vc.html"))
+
+	rqueue := make(chan *VC)
+	for i := 0; i < *concurrency; i++ {
+		go renderer(t, rqueue, done)
+	}
+
+	for _, vc := range VCs {
+		rqueue <- vc
+	}
+	close(rqueue)
+	waitDone(done)
 }

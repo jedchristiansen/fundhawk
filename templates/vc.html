@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>{{.Name}} - Fundhawk</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="css/chart.css" rel="stylesheet" media="screen">
+  </head>
+  <body>
+    <div class="navbar navbar-static-top navbar-inverse">
+      <div class="navbar-inner">
+        <a class="brand" href="/">Fundhawk</a>
+      </div>
+    </div>
+    <div class="container-fluid">
+      <div class="span8 offset2">
+        <h1>{{.Name}}</h1>
+
+        <div class="row">
+          <h2>Companies Invested</h2>
+          <div class="span1">
+            <h3>{{.TotalCompanies}}</h3>
+            <h4>Total</h4>
+          </div>
+          <div class="span1">
+            <h3>{{first .YearCompanySet}}</h3>
+            <h4>Min</h4>
+          </div>
+          <div class="span1">
+            <h3>{{last .YearCompanySet}}</h3>
+            <h4>Max</h4>
+          </div>
+          <div class="span1">
+            <h3>{{median .YearCompanySet}}</h3>
+            <h4>Median</h4>
+          </div>
+          <div class="span1">
+            <h3>{{mean .YearCompanySet}}</h3>
+            <h4>Mean</h4>
+          </div>
+
+          <div class="span5">
+            <div class="barchart">
+              {{range $year, $n := .CompaniesByYear}}
+                {{$max := last $.YearCompanySet}}
+                {{$h := barh $max $n}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{$n}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{$n}}{{end}}</div>{{$year}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Participating Rounds</h2>
+          <div class="span1">
+            <h3>{{len .RoundSizes}}</h3>
+            <h4>Total</h4>
+          </div>
+          <div class="span1">
+            <h3>{{first .YearRoundSet}}</h3>
+            <h4>Min</h4>
+          </div>
+          <div class="span1">
+            <h3>{{last .YearRoundSet}}</h3>
+            <h4>Max</h4>
+          </div>
+          <div class="span1">
+            <h3>{{median .YearRoundSet}}</h3>
+            <h4>Median</h4>
+          </div>
+          <div class="span1">
+            <h3>{{mean .YearRoundSet}}</h3>
+            <h4>Mean</h4>
+          </div>
+
+          <div class="span5">
+            <div class="barchart">
+              {{range $year, $n := .RoundsByYear}}
+                {{$max := last $.YearRoundSet}}
+                {{$h := barh $max $n}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{$n}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{$n}}{{end}}</div>{{$year}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Series Distribution</h2>
+          <div class="span5">
+            <div class="barchart">
+              {{range .SeriesDist.Buckets}}
+                {{$h := barh $.SeriesDist.Max .Count}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{.Count}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{.Count}}{{end}}</div>{{.Name}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Participating rounds per company</h2>
+          <div class="span5">
+            <div class="barchart">
+              {{range .RoundCountDist.Buckets}}
+                {{$h := barh $.RoundCountDist.Max .Count}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{.Count}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{.Count}}{{end}}</div>{{.Name}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Total capital raised in participating rounds</h2>
+          <div class="span1">
+            <h3>{{sum .RoundSizes | itof | pround}}</h3>
+            <h4>Total</h4>
+          </div>
+          <div class="span1">
+            <h3>{{first .RoundSizes | itof | pround}}</h3>
+            <h4>Min</h4>
+          </div>
+          <div class="span1">
+            <h3>{{last .RoundSizes | itof | pround}}</h3>
+            <h4>Max</h4>
+          </div>
+          <div class="span1">
+            <h3>{{median .RoundSizes | pround}}</h3>
+            <h4>Median</h4>
+          </div>
+          <div class="span1">
+            <h3>{{mean .RoundSizes | pround}}</h3>
+            <h4>Mean</h4>
+          </div>
+
+          <div class="span5">
+            <div class="barchart">
+              {{range .RaiseDist.Buckets}}
+                {{$h := barh $.RaiseDist.Max .Count}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{.Count}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{.Count}}{{end}}</div>{{.Name}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Average contribution per round participant</h2>
+          <div class="span1">
+            <h3>{{first .RoundShares | itof | pround}}</h3>
+            <h4>Min</h4>
+          </div>
+          <div class="span1">
+            <h3>{{last .RoundShares | itof | pround}}</h3>
+            <h4>Max</h4>
+          </div>
+          <div class="span1">
+            <h3>{{median .RoundShares | pround}}</h3>
+            <h4>Median</h4>
+          </div>
+          <div class="span1">
+            <h3>{{mean .RoundShares | pround}}</h3>
+            <h4>Mean</h4>
+          </div>
+
+          <div class="span5">
+            <div class="barchart">
+              {{range .ShareDist.Buckets}}
+                {{$h := barh $.ShareDist.Max .Count}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{.Count}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{.Count}}{{end}}</div>{{.Name}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <h2>Average coinvestors by round type</h2>
+          <div class="span5">
+            <div class="barchart">
+              {{range .InvestorRoundDist.Buckets}}
+                {{$h := barh $.InvestorRoundDist.Max .Count}}
+                <div class="bl"><div class="bm" style="padding-top:{{barmp $h}}px;height:{{barmh $h}}px">{{if barml $h | not}}{{.Count}}{{end}}</div><div class="b" style="height:{{$h}}px">{{if barml $h}}{{.Count}}{{end}}</div>{{.Name}}</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>
