@@ -1,3 +1,7 @@
+:root {
+  -webkit-print-color-adjust: exact;
+}
+
 .barchart .bl {
   float: left;
   margin-left: 10px;
