@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"runtime"
@@ -215,11 +214,12 @@ func calculateVCs() {
 			if p.Rounds < 2 {
 				continue
 			}
+
 			var r int64
 			for y := p.FirstYear; y <= p.LastYear; y++ {
 				r += p.VC.RoundsByYear[y]
 			}
-			p.Percentage = int(math.Floor(((float64(r) / 100) * float64(p.Rounds)) + 0.5))
+			p.Percentage = RoundInt((100 / float64(r)) * float64(p.Rounds))
 			vc.PartnerList = append(vc.PartnerList, p)
 		}
 		sort.Sort(vc.PartnerList)
@@ -285,7 +285,7 @@ type Company struct {
 
 type Partner struct {
 	Rounds     int
-	Percentage int
+	Percentage int64
 	FirstYear  int
 	LastYear   int
 
