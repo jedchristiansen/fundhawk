@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const BaseURL = "http://api.crunchbase.com/v/1/"
@@ -20,8 +21,8 @@ const BaseURL = "http://api.crunchbase.com/v/1/"
 var apiKey = flag.String("key", "", "CrunchBase API key")
 var remoteMode = flag.Bool("remote", false, "Fetch from CrunchBase API instead of local filesystem")
 var dataPath = flag.String("path", "./data", "Path to local data on the filesystem")
-var concurrency = flag.Int("workers", 50, "Number of workers to fetch with")
-var upload = flag.Bool("upload", false, "Upload the generated site to Swift")
+var concurrency = flag.Int("workers", 40, "Number of workers to fetch with")
+var upload = flag.Bool("upload", false, "Upload the generated site to Rackspace")
 
 type Permalink struct {
 	Link string `json:"permalink"`
@@ -48,7 +49,7 @@ func getVCList() Permalinks {
 }
 
 func getVC(permalink string) {
-	res, err := Get("financial-organizations/" + permalink)
+	res, err := Get("financial-organization/" + permalink)
 	if err != nil {
 		fmt.Printf("getVC fetch error: %s - %s\n", permalink, err)
 		return
@@ -331,15 +332,26 @@ func MaybePanic(err error) {
 	}
 }
 
+var doneCount int32 = 0
+var total int
+
 func Get(path string) (io.ReadCloser, error) {
 	if *remoteMode {
 		res, err := http.Get(apiURL(path + ".js"))
 		if err != nil {
 			return nil, err
 		}
+		if res.StatusCode == 504 { // retry once
+			res, err = http.Get(apiURL(path + ".js"))
+			if err != nil {
+				return nil, err
+			}
+		}
 		if res.StatusCode != 200 {
 			return nil, fmt.Errorf("get %s - incorrect response code received - %d", path, res.StatusCode)
 		}
+		atomic.AddInt32(&doneCount, 1)
+		fmt.Printf("\r%d/%d", doneCount, total)
 		return res.Body, nil
 	}
 
@@ -354,6 +366,9 @@ func fetcher(queue chan string, done chan bool) {
 }
 
 func Put(path string, r io.Reader) error {
+	atomic.AddInt32(&doneCount, 1)
+	fmt.Printf("\r%d/%d", doneCount, total)
+
 	if *upload {
 		return PutCloudFile(path, r)
 	}
@@ -423,6 +438,7 @@ func main() {
 	}
 
 	list := getVCList()
+	total = len(list)
 	for _, vc := range list {
 		queue <- vc.Link
 	}
@@ -448,6 +464,8 @@ func main() {
 	}).ParseFiles("templates/vc.html", "templates/index.html"))
 
 	writeAssets()
+
+	doneCount = 0
 
 	rqueue := make(chan *VC)
 	for i := 0; i < *concurrency; i++ {
