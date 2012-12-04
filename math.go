@@ -21,6 +21,10 @@ func Mean(p []int64) (a float64) {
 	return float64(Sum(p)) / float64(len(p))
 }
 
+func Roundf(f float64) string {
+	return strconv.FormatFloat(RoundFloat(f, 2), 'f', -1, 64)
+}
+
 func Median(p []int64) float64 {
 	if len(p) == 0 {
 		return 0
@@ -61,7 +65,7 @@ func PrettyRound(i float64) string {
 		x = i / 100
 	}
 
-	return strconv.FormatFloat(float64(Roundf(x))/10, 'f', -1, 64) + suffix
+	return strconv.FormatFloat(float64(RoundInt(x))/10, 'f', -1, 64) + suffix
 }
 
 func Itof(i int64) float64 {
@@ -100,12 +104,30 @@ func NiceNum(x float64, round bool) float64 {
 	return float64(nf) * math.Pow10(exp)
 }
 
-func Roundf(n float64) int64 {
-	return int64(math.Floor(n + 0.5))
+func RoundFloat(x float64, prec int) float64 {
+	var rounder float64
+	pow := math.Pow(10, float64(prec))
+	intermed := x * pow
+	_, frac := math.Modf(intermed)
+	x = .5
+	if frac < 0.0 {
+		x = -.5
+	}
+	if frac >= x {
+		rounder = math.Ceil(intermed)
+	} else {
+		rounder = math.Floor(intermed)
+	}
+
+	return rounder / pow
+}
+
+func RoundInt(n float64) int64 {
+	return int64(RoundFloat(n, 0))
 }
 
 func BarHeight(max int64, n int64) int {
-	return int(Roundf((100 / float64(max)) * float64(n)))
+	return int(RoundInt((100 / float64(max)) * float64(n)))
 }
 
 const labelHeight = 20

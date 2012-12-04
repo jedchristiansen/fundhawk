@@ -21,6 +21,7 @@ var apiKey = flag.String("key", "", "CrunchBase API key")
 var remoteMode = flag.Bool("remote", false, "Fetch from CrunchBase API instead of local filesystem")
 var dataPath = flag.String("path", "./data", "Path to local data on the filesystem")
 var concurrency = flag.Int("workers", 50, "Number of workers to fetch with")
+var upload = flag.Bool("upload", false, "Upload the generated site to Swift")
 
 type Permalink struct {
 	Link string `json:"permalink"`
@@ -188,7 +189,7 @@ func calculateVCs() {
 			}
 
 			if r.Amount != nil && *r.Amount >= 1 {
-				vc.RoundShares = append(vc.RoundShares, Roundf(*r.Amount/float64(len(vcs))))
+				vc.RoundShares = append(vc.RoundShares, RoundInt(*r.Amount/float64(len(vcs))))
 			}
 
 			vc.PartnerCountSet = append(vc.PartnerCountSet, int64(len(vcs)))
@@ -210,6 +211,9 @@ func calculateVCs() {
 
 		vc.PartnerList = make(PartnerList, 0, len(vc.Partners))
 		for _, p := range vc.Partners {
+			if p.Rounds < 2 {
+				continue
+			}
 			var r int64
 			for y := p.FirstYear; y <= p.LastYear; y++ {
 				r += p.VC.RoundsByYear[y]
@@ -222,7 +226,7 @@ func calculateVCs() {
 		vc.InvestorRoundDist.Buckets = make([]BucketedInt, 0, len(vc.PartnersByRound))
 		for _, b := range RoundCodeBuckets {
 			if cs, ok := vc.PartnersByRound[strings.ToLower(b)]; ok {
-				c := Roundf(Mean(cs))
+				c := RoundInt(Mean(cs))
 				if c > vc.InvestorRoundDist.Max {
 					vc.InvestorRoundDist.Max = c
 				}
@@ -290,7 +294,7 @@ type Partner struct {
 type PartnerList []*Partner
 
 func (p PartnerList) Len() int           { return len(p) }
-func (p PartnerList) Less(i, j int) bool { return p[i].Rounds < p[j].Rounds }
+func (p PartnerList) Less(i, j int) bool { return p[i].Rounds > p[j].Rounds }
 func (p PartnerList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 type BucketedInts struct {
@@ -349,14 +353,47 @@ func fetcher(queue chan string, done chan bool) {
 	done <- true
 }
 
-func render(t *template.Template, vc *VC) error {
-	f, err := os.Create("output/" + vc.Permalink + ".html")
+func Put(path string, r io.Reader) error {
+	if *upload {
+		return PutCloudFile(path, r)
+	}
+
+	f, err := os.Create("output/" + path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	err = t.ExecuteTemplate(f, "vc.html", vc)
-	return err
+	_, err = io.Copy(f, r)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func render(t *template.Template, vc *VC) error {
+	r, w := io.Pipe()
+	go func() {
+		err := t.ExecuteTemplate(w, "vc.html", vc)
+		if err != nil {
+			fmt.Printf("%s: %s\n", vc.Permalink, err)
+		}
+		w.Close()
+	}()
+
+	return Put("firms/"+vc.Permalink+".html", r)
+}
+
+func renderIndex(t *template.Template) error {
+	r, w := io.Pipe()
+	go func() {
+		err := t.ExecuteTemplate(w, "index.html", VCs)
+		if err != nil {
+			fmt.Printf("index.html: %s\n", err)
+		}
+		w.Close()
+	}()
+
+	return Put("index.html", r)
 }
 
 func renderer(t *template.Template, queue chan *VC, done chan bool) {
@@ -400,13 +437,17 @@ func main() {
 		"mean":   Mean,
 		"median": Median,
 		"sum":    Sum,
+		"round":  Roundf,
 		"pround": PrettyRound,
 		"itof":   Itof,
 		"barh":   BarHeight,
 		"barml":  BarMarginLabel,
 		"barmp":  BarMarginPadding,
 		"barmh":  BarMarginHeight,
-	}).ParseFiles("templates/vc.html"))
+		"asset":  AssetPath,
+	}).ParseFiles("templates/vc.html", "templates/index.html"))
+
+	writeAssets()
 
 	rqueue := make(chan *VC)
 	for i := 0; i < *concurrency; i++ {
@@ -418,4 +459,6 @@ func main() {
 	}
 	close(rqueue)
 	waitDone(done)
+
+	renderIndex(t)
 }
