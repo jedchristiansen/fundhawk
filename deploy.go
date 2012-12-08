@@ -18,7 +18,7 @@ var rsBucket = flag.String("bucket", "", "Rackspace Cloud Files bucket")
 var rsAssetUrl = flag.String("asseturl", "", "Asset URL")
 
 func PutCloudFile(path string, r io.Reader) error {
-	_, err := rs.ObjectPut(*rsBucket, path, r, false, "", "text/html", swift.Headers{"Cache-Control": "public, max-age=300"})
+	_, err := rs.ObjectPut(*rsBucket, path, r, false, "", "text/html; charset=utf-8", swift.Headers{"Cache-Control": "public, max-age=300"})
 	return err
 }
 
