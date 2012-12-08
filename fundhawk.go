@@ -238,9 +238,10 @@ func calculateVCs() {
 }
 
 type VC struct {
-	Name      string  `json:"name"`
-	Permalink string  `json:"permalink"`
-	URL       *string `json:"homepage_url"`
+	Name      string         `json:"name"`
+	Permalink string         `json:"permalink"`
+	URL       *string        `json:"homepage_url"`
+	Overview  *template.HTML `json:"overview"`
 
 	RoundsByCode    map[string]int64
 	RoundsByYear    map[int]int64
