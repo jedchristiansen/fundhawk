@@ -310,8 +310,8 @@ type BucketedInt struct {
 
 var (
 	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
-	RoundSizeBuckets  = Buckets("<500k", "500-999k", "1-1.49m", "1.5-2.9m", "3-6.9m", "7-14.9m", "15-29.9m", ">30m")
-	RoundShareBuckets = Buckets("<50k", "50-149k", "150-499k", "500k-1.9m", "2-4.9m", "5-9.9m", ">10m")
+	RoundSizeBuckets  = Buckets("<500k", "500 - 999k", "1 - 1.49m", "1.5 - 2.9m", "3 - 6.9m", "7 - 14.9m", "15 - 29.9m", ">30m")
+	RoundShareBuckets = Buckets("<50k", "50 - 149k", "150 - 499k", "500k - 1.9m", "2 - 4.9m", "5 - 9.9m", ">10m")
 	RoundCountBuckets = Buckets("1", "2", "3", "4", "5", "6")
 )
 

@@ -203,7 +203,7 @@ func Buckets(names ...string) ValueBuckets {
 	for i, n := range names {
 		var x, min float64 = 1, 0
 
-		j := strings.Index(n, "-")
+		j := strings.Index(n, " - ")
 		if j != -1 && n[j-1] == 'k' {
 			j -= 1
 			x = 1000
