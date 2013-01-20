@@ -6,7 +6,9 @@ import (
 	"flag"
 	"github.com/ncw/swift"
 	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -30,10 +32,36 @@ func AssetPath(a string) string {
 	return "/assets/" + assets[a]
 }
 
-var assets = map[string]string{"bootstrap.min.css": "", "style.css": ""}
+var jsAssets = []string{"lodash.js", "reqwest.js", "search.coffee"}
+var assets = map[string]string{"bootstrap.min.css": "", "style.css": "", "application.js": ""}
 var contentTypes = map[string]string{".css": "text/css", ".js": "text/javascript"}
 
+func compileJS() {
+	out, err := ioutil.TempFile("", "")
+	defer out.Close()
+	defer os.Remove(out.Name())
+
+	for _, js := range jsAssets {
+		f, err := os.Open("assets/" + js)
+		defer f.Close()
+		if filepath.Ext(js) == ".coffee" {
+			coffee := exec.Command("coffee", "-c", "--stdio")
+			coffee.Stdin = f
+			coffee.Stdout = out
+			err = coffee.Run()
+			MaybePanic(err)
+			continue
+		}
+		_, err = io.Copy(out, f)
+		MaybePanic(err)
+	}
+
+	err = exec.Command("uglifyjs", "-m", "-c", "-o", "assets/application.js", out.Name()).Run()
+	MaybePanic(err)
+}
+
 func writeAssets() {
+	compileJS()
 	for a := range assets {
 		f, err := os.Open("assets/" + a)
 		MaybePanic(err)

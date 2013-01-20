@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -45,6 +46,17 @@ func getList(category string) Permalinks {
 
 func getVCList() Permalinks {
 	return getList("financial-organizations")
+}
+
+var prefixPattern = regexp.MustCompile(`\b[a-z0-9]{1,2}`)
+
+func wordPrefixes(s string) map[string]bool {
+	p := prefixPattern.FindAllString(strings.ToLower(s), -1)
+	prefixes := make(map[string]bool)
+	for _, prefix := range p {
+		prefixes[prefix] = true
+	}
+	return prefixes
 }
 
 func getVC(permalink string) {
@@ -153,6 +165,10 @@ func getVC(permalink string) {
 
 	IndexMutex.Lock()
 	VCs[vc.Permalink] = vc
+	vcDataList = append(vcDataList, []string{vc.Permalink, vc.Name})
+	for prefix, _ := range wordPrefixes(vc.Name) {
+		vcNamePrefixes[prefix] = append(vcNamePrefixes[prefix], len(vcDataList)-1)
+	}
 	IndexMutex.Unlock()
 }
 
@@ -235,9 +251,14 @@ func calculateVCs() {
 			}
 		}
 	}
+
+	for _, l := range vcNamePrefixes {
+		sort.Sort(l)
+	}
 }
 
 type VC struct {
+	ID        int
 	Name      string         `json:"name"`
 	Permalink string         `json:"permalink"`
 	URL       *string        `json:"homepage_url"`
@@ -309,6 +330,12 @@ type BucketedInt struct {
 	Count int64
 }
 
+type WeightedIDs []int
+
+func (w WeightedIDs) Len() int           { return len(w) }
+func (w WeightedIDs) Less(i, j int) bool { return len(VCs[vcDataList[w[i]][0]].Investments) > len(VCs[vcDataList[w[j]][0]].Investments) }
+func (w WeightedIDs) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+
 var (
 	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
 	RoundSizeBuckets  = Buckets("<500k", "500 - 999k", "1 - 1.49m", "1.5 - 2.9m", "3 - 6.9m", "7 - 14.9m", "15 - 29.9m", ">30m")
@@ -317,10 +344,12 @@ var (
 )
 
 var (
-	IndexMutex = new(sync.RWMutex)
-	VCs        = make(map[string]*VC)
-	RoundVCs   = make(map[string][]*VC)
-	Rounds     = make(map[string]Round)
+	IndexMutex     = new(sync.RWMutex)
+	VCs            = make(map[string]*VC)
+	RoundVCs       = make(map[string][]*VC)
+	Rounds         = make(map[string]Round)
+	vcNamePrefixes = make(map[string]WeightedIDs)
+	vcDataList     = [][]string{}
 )
 
 func apiURL(path string) string {
@@ -399,7 +428,7 @@ func render(t *template.Template, vc *VC) error {
 	return Put("firms/"+vc.Permalink+".html", r)
 }
 
-func renderIndex(t *template.Template) error {
+func renderIndexPage(t *template.Template) error {
 	r, w := io.Pipe()
 	go func() {
 		err := t.ExecuteTemplate(w, "index.html", VCs)
@@ -410,6 +439,19 @@ func renderIndex(t *template.Template) error {
 	}()
 
 	return Put("index.html", r)
+}
+
+func renderIndexJSON() error {
+	r, w := io.Pipe()
+	go func() {
+		err := json.NewEncoder(w).Encode(map[string]interface{}{"a": vcDataList, "b": vcNamePrefixes})
+		if err != nil {
+			fmt.Println("index.json:", err)
+		}
+		w.Close()
+	}()
+
+	return Put("index.json", r)
 }
 
 func renderer(t *template.Template, queue chan *VC, done chan bool) {
@@ -479,5 +521,6 @@ func main() {
 	close(rqueue)
 	waitDone(done)
 
-	renderIndex(t)
+	renderIndexPage(t)
+	renderIndexJSON()
 }
