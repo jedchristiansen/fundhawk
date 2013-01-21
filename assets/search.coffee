@@ -20,9 +20,14 @@ class Index
 window.vcs = new Index
 
 window.search = (e) ->
-  val = e.srcElement.value
+  val = e.target.value
   if val?.length > 0
-    res = _.map vcs.search(val), (vc) -> "<li><a href='/firms/#{vc[0]}.html'>#{vc[1]}</a></li>"
+    res = vcs.search(val)
   else
     res = []
-  document.getElementById("search-results").innerHTML = res.join("")
+
+  if res.length > 0 && e.keyCode == 13 # enter key
+    document.location.pathname = "/firms/#{res[0][0]}.html"
+  else
+    res = _.map res, (vc) -> "<li><a href='/firms/#{vc[0]}.html'>#{vc[1]}</a></li>"
+    document.getElementById("search-results").innerHTML = res.join("")
