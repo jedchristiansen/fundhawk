@@ -48,7 +48,7 @@ func getVCList() Permalinks {
 	return getList("financial-organizations")
 }
 
-var prefixPattern = regexp.MustCompile(`\b[a-z0-9]{1,2}`)
+var prefixPattern = regexp.MustCompile(`\b[a-z0-9]`)
 
 func wordPrefixes(s string) map[string]bool {
 	p := prefixPattern.FindAllString(strings.ToLower(s), -1)

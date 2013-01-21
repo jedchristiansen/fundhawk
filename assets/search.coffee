@@ -9,8 +9,7 @@ class Index
     words = str.toLowerCase().match(/[a-z0-9]+/g)
     return [] if words == []
     wordPattern = new RegExp("\\b" + words.join("(.*\\b)+"), "i")
-    keys = for word in words
-      if word.length <= 2 then word else word[0..1]
+    keys = word[0] for word in words
     _(_.intersection(@data.b[key] for key in keys...))
     .filter((i) => @data.a[i][1].match(wordPattern))
     .first(100)
