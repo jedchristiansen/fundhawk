@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -92,18 +94,17 @@ func getVC(permalink string) {
 	for _, inv := range vc.Investments {
 		r := inv.Round
 		cp := r.Company.Permalink
-		rid := cp + "-" + r.Code
 
-		if _, ok := vc.RoundsByCode[r.Code]; !ok {
-			vc.RoundsByCode[r.Code] = 0
+		var y int
+		if r.Year != nil {
+			y = *r.Year
 		}
+		rid := cp + ":" + strconv.Itoa(y) + ":" + r.Code
+
 		vc.RoundsByCode[r.Code] += 1
 
-		if r.Year != nil && *r.Year > 2004 {
+		if r.Year != nil {
 			year := *r.Year
-			if _, ok := vc.RoundsByYear[year]; !ok {
-				vc.RoundsByYear[year] = 0
-			}
 			vc.RoundsByYear[year] += 1
 
 			if _, ok := companiesByYear[year]; !ok {
@@ -130,13 +131,17 @@ func getVC(permalink string) {
 	vc.RoundSizes.Sort()
 
 	for year, companies := range companiesByYear {
-		vc.CompaniesByYear[year] = int64(len(companies))
+		if year > 2004 {
+			vc.CompaniesByYear[year] = int64(len(companies))
+		}
 	}
 	vc.TotalCompanies = len(vc.RoundsByCompany)
 
 	vc.YearRoundSet = make(IntSlice, 0, len(vc.RoundsByYear))
-	for _, x := range vc.RoundsByYear {
-		vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
+	for year, x := range vc.RoundsByYear {
+		if year > 2004 {
+			vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
+		}
 	}
 	vc.YearRoundSet.Sort()
 
@@ -185,15 +190,15 @@ func calculateVCs() {
 					continue
 				}
 
-				var p *Partner
-				var ok bool
-				if p, ok = vc.Partners[v]; !ok {
-					p = &Partner{VC: v}
-					vc.Partners[v] = p
-				}
-				vc.Partners[v].Rounds += 1
-
 				if r.Year != nil {
+					var p *Partner
+					var ok bool
+					if p, ok = vc.Partners[v]; !ok {
+						p = &Partner{VC: v}
+						vc.Partners[v] = p
+					}
+					vc.Partners[v].Rounds += 1
+
 					year := *r.Year
 					if p.FirstYear == 0 || p.FirstYear > year {
 						p.FirstYear = year
@@ -235,7 +240,7 @@ func calculateVCs() {
 			for y := p.FirstYear; y <= p.LastYear; y++ {
 				r += p.VC.RoundsByYear[y]
 			}
-			p.Percentage = RoundInt((100 / float64(r)) * float64(p.Rounds))
+			p.Percentage = int64(math.Floor((float64(p.Rounds) / float64(r)) * 100))
 			vc.PartnerList = append(vc.PartnerList, p)
 		}
 		sort.Sort(vc.PartnerList)
