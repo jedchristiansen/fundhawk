@@ -59,7 +59,7 @@
           </div>
 
           <div class="row">
-            <div class="span5">
+            <div class="span6">
               <div class="barchart">
                 {{range $year, $n := .CompaniesByYear}}
                   {{$max := last $.YearCompanySet}}
@@ -97,7 +97,7 @@
           </div>
 
           <div class="row">
-            <div class="span5">
+            <div class="span6">
               <div class="barchart">
                 {{range $year, $n := .RoundsByYear}}
                   {{$max := last $.YearRoundSet}}
@@ -111,7 +111,7 @@
 
         <div class="row section">
           <h2>Series Distribution</h2>
-          <div class="span5">
+          <div class="span6">
             <div class="barchart">
               {{range .SeriesDist.Buckets}}
                 {{$h := barh $.SeriesDist.Max .Count}}
@@ -123,7 +123,7 @@
 
         <div class="row section">
           <h2>Participating rounds per company</h2>
-          <div class="span5">
+          <div class="span6">
             <div class="barchart">
               {{range .RoundCountDist.Buckets}}
                 {{$h := barh $.RoundCountDist.Max .Count}}
@@ -159,7 +159,7 @@
           </div>
 
           <div class="row">
-            <div class="span5">
+            <div class="span6">
               <div class="barchart">
                 {{range .RaiseDist.Buckets}}
                   {{$h := barh $.RaiseDist.Max .Count}}
@@ -192,7 +192,7 @@
           </div>
 
           <div class="row section">
-            <div class="span5">
+            <div class="span6">
               <div class="barchart">
                 {{range .ShareDist.Buckets}}
                   {{$h := barh $.ShareDist.Max .Count}}
@@ -205,7 +205,7 @@
 
         <div class="row section">
           <h2>Average coinvestors by round type</h2>
-          <div class="span5">
+          <div class="span6">
             <div class="barchart">
               {{range .InvestorRoundDist.Buckets}}
                 {{$h := barh $.InvestorRoundDist.Max .Count}}
