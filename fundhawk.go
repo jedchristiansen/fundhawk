@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	ttemplate "text/template"
 )
 
 const BaseURL = "http://api.crunchbase.com/v/1/"
@@ -455,6 +456,22 @@ func renderIndexPage(t *template.Template) error {
 	return Put("index.html", r)
 }
 
+func renderSitemap() error {
+	t := ttemplate.Must(ttemplate.ParseFiles("templates/sitemap.xml"))
+
+	r, w := io.Pipe()
+	go func() {
+		err := t.ExecuteTemplate(w, "sitemap.xml", VCs)
+		if err != nil {
+			fmt.Println("sitemap.xml:", err)
+		}
+		w.Close()
+	}()
+
+	Put("sitemap.xml", r)
+	return Put("robots.txt", strings.NewReader("Sitemap: http://fundhawk.com/sitemap.xml"))
+}
+
 func renderIndexJSON() error {
 	r, w := io.Pipe()
 	go func() {
@@ -518,7 +535,7 @@ func main() {
 		"barmp":  BarMarginPadding,
 		"barmh":  BarMarginHeight,
 		"asset":  AssetPath,
-	}).ParseFiles("templates/vc.html", "templates/index.html"))
+	}).ParseFiles("templates/vc.html", "templates/index.html", "templates/sitemap.xml"))
 
 	writeAssets()
 
@@ -537,4 +554,5 @@ func main() {
 
 	renderIndexPage(t)
 	renderIndexJSON()
+	renderSitemap()
 }

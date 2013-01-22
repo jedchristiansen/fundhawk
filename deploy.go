@@ -20,7 +20,8 @@ var rsBucket = flag.String("bucket", "", "Rackspace Cloud Files bucket")
 var rsAssetUrl = flag.String("asseturl", "", "Asset URL")
 
 func PutCloudFile(path string, r io.Reader) error {
-	_, err := rs.ObjectPut(*rsBucket, path, r, false, "", "text/html; charset=utf-8", swift.Headers{"Cache-Control": "public, max-age=300"})
+	ext := filepath.Ext(path)
+	_, err := rs.ObjectPut(*rsBucket, path, r, false, "", contentTypes[ext], swift.Headers{"Cache-Control": "public, max-age=300"})
 	return err
 }
 
@@ -34,7 +35,7 @@ func AssetPath(a string) string {
 
 var jsAssets = []string{"lodash.js", "reqwest.js", "search.coffee"}
 var assets = map[string]string{"bootstrap.min.css": "", "style.css": "", "application.js": ""}
-var contentTypes = map[string]string{".css": "text/css", ".js": "text/javascript"}
+var contentTypes = map[string]string{".css": "text/css", ".js": "text/javascript", ".txt": "text/plain", ".xml": "text/xml", ".html": "text/html; charset=utf-8"}
 
 func compileJS() {
 	out, err := ioutil.TempFile("", "")
