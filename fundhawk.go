@@ -105,7 +105,7 @@ func getVC(permalink string) {
 
 		vc.RoundsByCode[r.Code] += 1
 
-		if r.Year != nil {
+		if r.Year != nil && *r.Year >= MinYear {
 			year := *r.Year
 			vc.RoundsByYear[year] += 1
 
@@ -130,17 +130,13 @@ func getVC(permalink string) {
 	vc.RoundSizes.Sort()
 
 	for year, companies := range companiesByYear {
-		if year >= MinYear {
-			vc.CompaniesByYear[year] = int64(len(companies))
-		}
+		vc.CompaniesByYear[year] = int64(len(companies))
 	}
 	vc.TotalCompanies = len(vc.RoundsByCompany)
 
 	vc.YearRoundSet = make(IntSlice, 0, len(vc.RoundsByYear))
-	for year, x := range vc.RoundsByYear {
-		if year >= MinYear {
-			vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
-		}
+	for _, x := range vc.RoundsByYear {
+		vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
 	}
 	vc.YearRoundSet.Sort()
 
@@ -189,7 +185,7 @@ func calculateVCs() {
 					continue
 				}
 
-				if r.Year != nil {
+				if r.Year != nil && *r.Year >= MinYear {
 					var p *Partner
 					var ok bool
 					if p, ok = vc.Partners[v]; !ok {
@@ -252,14 +248,6 @@ func calculateVCs() {
 					vc.InvestorRoundDist.Max = c
 				}
 				vc.InvestorRoundDist.Buckets = append(vc.InvestorRoundDist.Buckets, BucketedInt{b, c})
-			}
-		}
-	}
-
-	for _, vc := range VCs {
-		for year, _ := range vc.RoundsByYear {
-			if year < MinYear {
-				delete(vc.RoundsByYear, year)
 			}
 		}
 	}
