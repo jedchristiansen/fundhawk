@@ -64,7 +64,7 @@ func wordPrefixes(s string) map[string]bool {
 func getVC(permalink string) {
 	res, err := Get("financial-organization/" + permalink)
 	if err != nil {
-		fmt.Printf("getVC fetch error: %s - %s\n", permalink, err)
+		fmt.Println("getVC fetch error:", permalink, "-", err)
 		return
 	}
 	defer res.Close()
@@ -72,7 +72,7 @@ func getVC(permalink string) {
 	vc := new(VC)
 	err = json.NewDecoder(res).Decode(vc)
 	if err != nil {
-		fmt.Printf("getVC parse error: %s - %s\n", permalink, err)
+		fmt.Println("getVC parse error:", permalink, "-", err)
 		return
 	}
 
@@ -82,7 +82,7 @@ func getVC(permalink string) {
 
 	vc.RoundsByCode = make(map[string]int64)
 	vc.RoundsByYear = make(map[int]int64)
-	vc.RoundsByCompany = make(map[string]int64)
+	vc.RoundsByCompany = make(map[Company]int64)
 	vc.CompaniesByYear = make(map[int]int64)
 	vc.RoundShares = make(IntSlice, 0, len(vc.Investments))
 	vc.RoundSizes = make(IntSlice, 0, len(vc.Investments))
@@ -113,10 +113,7 @@ func getVC(permalink string) {
 			companiesByYear[year][cp] = true
 		}
 
-		if _, ok := vc.RoundsByCompany[cp]; !ok {
-			vc.RoundsByCompany[cp] = 0
-		}
-		vc.RoundsByCompany[cp] += 1
+		vc.RoundsByCompany[r.Company] += 1
 
 		if inv.Round.Amount != nil && *inv.Round.Amount >= 1 {
 			vc.RoundSizes = append(vc.RoundSizes, int64(*inv.Round.Amount))
@@ -271,7 +268,7 @@ type VC struct {
 
 	RoundsByCode    map[string]int64
 	RoundsByYear    map[int]int64
-	RoundsByCompany map[string]int64
+	RoundsByCompany map[Company]int64
 	CompaniesByYear map[int]int64
 	Partners        map[*VC]*Partner
 
@@ -325,6 +322,18 @@ func (p PartnerList) Len() int           { return len(p) }
 func (p PartnerList) Less(i, j int) bool { return p[i].Rounds > p[j].Rounds }
 func (p PartnerList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+type CompanyList []struct {
+	Company         Company
+	Rounds          int
+	Raised          int64
+	RaisedShare     int
+	SharePercentage int
+}
+
+func (c CompanyList) Len() int           { return len(c) }
+func (c CompanyList) Less(i, j int) bool { return c[i].Rounds > c[j].Rounds }
+func (c CompanyList) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+
 type BucketedInts struct {
 	Max     int64
 	Buckets []BucketedInt
@@ -337,9 +346,11 @@ type BucketedInt struct {
 
 type WeightedIDs []int
 
-func (w WeightedIDs) Len() int           { return len(w) }
-func (w WeightedIDs) Less(i, j int) bool { return len(VCs[vcDataList[w[i]][0]].Investments) > len(VCs[vcDataList[w[j]][0]].Investments) }
-func (w WeightedIDs) Swap(i, j int)      { w[i], w[j] = w[j], w[i] }
+func (w WeightedIDs) Len() int { return len(w) }
+func (w WeightedIDs) Less(i, j int) bool {
+	return len(VCs[vcDataList[w[i]][0]].Investments) > len(VCs[vcDataList[w[j]][0]].Investments)
+}
+func (w WeightedIDs) Swap(i, j int) { w[i], w[j] = w[j], w[i] }
 
 var (
 	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
@@ -438,7 +449,7 @@ func renderIndexPage(t *template.Template) error {
 	go func() {
 		err := t.ExecuteTemplate(w, "index.html", VCs)
 		if err != nil {
-			fmt.Printf("index.html: %s\n", err)
+			fmt.Println("index.html:", err)
 		}
 		w.Close()
 	}()
@@ -463,7 +474,7 @@ func renderer(t *template.Template, queue chan *VC, done chan bool) {
 	for vc := range queue {
 		err := render(t, vc)
 		if err != nil {
-			fmt.Printf("render error: %s\n", err)
+			fmt.Println("render error:", err)
 		}
 	}
 	done <- true
