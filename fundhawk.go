@@ -20,6 +20,8 @@ import (
 
 const BaseURL = "http://api.crunchbase.com/v/1/"
 
+const MinYear = 2005
+
 var apiKey = flag.String("key", "", "CrunchBase API key")
 var remoteMode = flag.Bool("remote", false, "Fetch from CrunchBase API instead of local filesystem")
 var dataPath = flag.String("path", "./data", "Path to local data on the filesystem")
@@ -128,7 +130,7 @@ func getVC(permalink string) {
 	vc.RoundSizes.Sort()
 
 	for year, companies := range companiesByYear {
-		if year > 2004 {
+		if year >= MinYear {
 			vc.CompaniesByYear[year] = int64(len(companies))
 		}
 	}
@@ -136,7 +138,7 @@ func getVC(permalink string) {
 
 	vc.YearRoundSet = make(IntSlice, 0, len(vc.RoundsByYear))
 	for year, x := range vc.RoundsByYear {
-		if year > 2004 {
+		if year >= MinYear {
 			vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
 		}
 	}
@@ -250,6 +252,14 @@ func calculateVCs() {
 					vc.InvestorRoundDist.Max = c
 				}
 				vc.InvestorRoundDist.Buckets = append(vc.InvestorRoundDist.Buckets, BucketedInt{b, c})
+			}
+		}
+	}
+
+	for _, vc := range VCs {
+		for year, _ := range vc.RoundsByYear {
+			if year < MinYear {
+				delete(vc.RoundsByYear, year)
 			}
 		}
 	}
