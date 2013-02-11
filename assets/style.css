@@ -3,7 +3,7 @@
 }
 
 body {
-	margin-bottom: 10px
+  margin-bottom: 10px
 }
 
 .navbar-inverse .brand {
@@ -81,4 +81,8 @@ h2, h3, h4 {
   background-color: #0088cc;
   color: #fff;
   outline: none;
+}
+
+#footer {
+  text-align: center;
 }
