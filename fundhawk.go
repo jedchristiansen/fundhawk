@@ -353,8 +353,8 @@ func (w WeightedIDs) Swap(i, j int) { w[i], w[j] = w[j], w[i] }
 
 var (
 	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
-	RoundSizeBuckets  = Buckets("<500k", "500 - 999k", "1 - 1.49m", "1.5 - 2.9m", "3 - 6.9m", "7 - 14.9m", "15 - 29.9m", ">30m")
-	RoundShareBuckets = Buckets("<50k", "50 - 149k", "150 - 499k", "500k - 1.9m", "2 - 4.9m", "5 - 9.9m", ">10m")
+	RoundSizeBuckets  = Buckets("<100k", "100 - 500k", "500k - 1m", "1 - 3m", "3 - 5m", "5 - 10m", "10 - 30m", ">30m")
+	RoundShareBuckets = Buckets("<100k", "100 - 250k", "250k - 1m", "1 - 3m", "3 - 5m", "5 - 10m", "10 - 30m", ">30m")
 	RoundCountBuckets = Buckets("1", "2", "3", "4", "5", "6")
 )
 
