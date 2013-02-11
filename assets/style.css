@@ -2,6 +2,10 @@
   -webkit-print-color-adjust: exact;
 }
 
+body {
+	margin-bottom: 10px
+}
+
 .barchart .bl {
   float: left;
   margin-left: 10px;
