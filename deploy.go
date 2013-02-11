@@ -25,12 +25,6 @@ func PutCloudFile(path string, r io.Reader) error {
 	return err
 }
 
-func PutUncachedCloudFile(path string, r io.Reader) error {
-	ext := filepath.Ext(path)
-	_, err := rs.ObjectPut(*rsBucket, path, r, false, "", contentTypes[ext], swift.Headers{"Cache-Control": "max-age=0, must-revalidate"})
-	return err
-}
-
 func AssetPath(a string) string {
 	if *upload {
 		return *rsAssetUrl + "/" + assets[a]

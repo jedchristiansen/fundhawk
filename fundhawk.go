@@ -415,10 +415,6 @@ func Put(path string, r io.Reader) error {
 	atomic.AddInt32(&doneCount, 1)
 	fmt.Printf("\r%d/%d", doneCount, total)
 
-	if *upload && path == "s.gif" {
-		return PutUncachedCloudFile(path, r)
-	}
-
 	if *upload {
 		return PutCloudFile(path, r)
 	}

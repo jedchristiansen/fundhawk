@@ -95,4 +95,4 @@ window.t = (e) ->
   val = e.target.value
   if val?.length > 0 and val != lastSearch
     lastSearch = val
-    (new Image).src = "/s.gif?a=#{uniq}&s=#{encodeURIComponent(val)}"
+    (new Image).src = "/s.gif?a=#{uniq}&s=#{encodeURIComponent(val)}&t=#{new Date().getTime()}"
