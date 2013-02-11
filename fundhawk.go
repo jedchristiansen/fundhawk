@@ -17,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 	ttemplate "text/template"
+	"time"
 )
 
 const BaseURL = "http://api.crunchbase.com/v/1/"
@@ -501,6 +502,10 @@ func waitDone(done chan bool) {
 	}
 }
 
+func htmlTimestamp() template.HTML {
+	return template.HTML("<!-- Generated at " + time.Now().Format(time.RFC3339Nano) + " -->")
+}
+
 func main() {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -522,19 +527,20 @@ func main() {
 	calculateVCs()
 
 	t := template.Must(template.New("vc").Funcs(template.FuncMap{
-		"first":  First,
-		"last":   Last,
-		"mean":   Mean,
-		"median": Median,
-		"sum":    Sum,
-		"round":  Roundf,
-		"pround": PrettyRound,
-		"itof":   Itof,
-		"barh":   BarHeight,
-		"barml":  BarMarginLabel,
-		"barmp":  BarMarginPadding,
-		"barmh":  BarMarginHeight,
-		"asset":  AssetPath,
+		"first":     First,
+		"last":      Last,
+		"mean":      Mean,
+		"median":    Median,
+		"sum":       Sum,
+		"round":     Roundf,
+		"pround":    PrettyRound,
+		"itof":      Itof,
+		"barh":      BarHeight,
+		"barml":     BarMarginLabel,
+		"barmp":     BarMarginPadding,
+		"barmh":     BarMarginHeight,
+		"asset":     AssetPath,
+		"timestamp": htmlTimestamp,
 	}).ParseFiles("templates/vc.html", "templates/index.html", "templates/sitemap.xml"))
 
 	writeAssets()
