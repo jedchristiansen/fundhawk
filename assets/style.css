@@ -58,7 +58,18 @@ h2, h3, h4 {
   margin: 0
 }
 
-#search-results li {
+#search-results li a {
   font-size: 24px;
-  line-height: 1.2;
+  display: block;
+  height: 34px;
+  width: 100%;
+  line-height: 1.4;
+  padding-left: 10px;
+  border-radius: 2px;
+}
+
+#search-results li a:focus {
+  background-color: #0088cc;
+  color: #fff;
+  outline: none;
 }

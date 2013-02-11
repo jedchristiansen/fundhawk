@@ -16,7 +16,7 @@ class Index
     .map((i) => @data.a[i])
     .value()
 
-window.vcs = new Index
+vcs = new Index
 
 window.search = (e) ->
   val = e.target.value
@@ -28,5 +28,25 @@ window.search = (e) ->
   if res.length > 0 && e.keyCode == 13 # enter key
     document.location.pathname = "/firms/#{res[0][0]}.html"
   else
-    res = _.map res, (vc) -> "<li><a href='/firms/#{vc[0]}.html'>#{vc[1]}</a></li>"
+    res = _.map res, (vc) -> "<li><a onkeydown='arrow(event)' href='/firms/#{vc[0]}.html'>#{vc[1]}</a></li>"
     document.getElementById("search-results").innerHTML = res.join("")
+
+  if e.keyCode == 40 # down arrow
+    e.preventDefault()
+    if li = document.getElementById("search-results").firstChild
+      li.firstChild.focus()
+    return false
+
+window.arrow = (e) ->
+  if e.keyCode == 38 or e.keyCode == 75 # up / k
+    e.preventDefault()
+    if prev = e.target.parentNode.previousSibling
+      prev.firstChild.focus()
+    else
+      document.getElementById("search").focus()
+    return false
+  else if e.keyCode == 40 or e.keyCode == 74 # down / j
+    e.preventDefault()
+    if next = e.target.parentNode.nextSibling
+      next.firstChild.focus()
+    return false
