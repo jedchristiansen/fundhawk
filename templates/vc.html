@@ -217,6 +217,7 @@
           </div>
         </div>
 
+        {{if .PartnerList}}
         <div class="row section">
           <h2>Frequent coinvestors (same round)</h2>
 
@@ -239,7 +240,9 @@
             </tbody>
           </table>
         </div>
+        {{end}}
 
+        <hr>
         <div class="row">
             <a href="http://www.crunchbase.com/financial-organization/{{.Permalink}}" title="{{.Name}} on CrunchBase">{{.Name}} on CrunchBase</a> | <a href="https://github.com/titanous/fundhawk">Fundhawk on Github</a>
         </div>
