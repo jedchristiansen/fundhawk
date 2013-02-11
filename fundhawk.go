@@ -415,6 +415,10 @@ func Put(path string, r io.Reader) error {
 	atomic.AddInt32(&doneCount, 1)
 	fmt.Printf("\r%d/%d", doneCount, total)
 
+	if *upload && path == "s.gif" {
+		return PutUncachedCloudFile(path, r)
+	}
+
 	if *upload {
 		return PutCloudFile(path, r)
 	}
@@ -455,6 +459,14 @@ func renderIndexPage(t *template.Template) error {
 	}()
 
 	return Put("index.html", r)
+}
+
+func putTrackingGIF() error {
+	r, err := os.Open("assets/s.gif")
+	if err != nil {
+		return err
+	}
+	return Put("s.gif", r)
 }
 
 func renderSitemap() error {
@@ -561,4 +573,5 @@ func main() {
 	renderIndexPage(t)
 	renderIndexJSON()
 	renderSitemap()
+	putTrackingGIF()
 }
