@@ -29,7 +29,9 @@
         <div class="row">
           <h1>{{.Name}}</h1>
 
-          {{.Overview}}
+          {{ if .Overview }}
+            {{.Overview}}
+          {{ end }}
         </div>
 
         <div class="row section">
