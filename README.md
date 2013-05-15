@@ -7,8 +7,8 @@ Akamai CDN).
 ## Usage
 
 ```
-$ go run *.go -help
-Usage of fundhawk:
+$ go build && ./fundhawk -help
+Usage of ./fundhawk:
   -asseturl="": Asset URL
   -bucket="": Rackspace Cloud Files bucket
   -key="": CrunchBase API key
