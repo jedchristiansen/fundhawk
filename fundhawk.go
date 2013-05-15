@@ -168,7 +168,7 @@ func getVC(permalink string) {
 	IndexMutex.Lock()
 	VCs[vc.Permalink] = vc
 	vcDataList = append(vcDataList, []string{vc.Permalink, vc.Name})
-	for prefix, _ := range wordPrefixes(vc.Name) {
+	for prefix := range wordPrefixes(vc.Name) {
 		vcNamePrefixes[prefix] = append(vcNamePrefixes[prefix], len(vcDataList)-1)
 	}
 	IndexMutex.Unlock()
