@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -29,6 +31,8 @@ var remoteMode = flag.Bool("remote", false, "Fetch from CrunchBase API instead o
 var dataPath = flag.String("path", "./data", "Path to local data on the filesystem")
 var concurrency = flag.Int("workers", 40, "Number of workers to fetch with")
 var upload = flag.Bool("upload", false, "Upload the generated site to Rackspace")
+var firms = flag.String("firms", "", "List of firms, one per line")
+var save = flag.Bool("save", false, "Save downloaded data")
 
 type Permalink struct {
 	Link string `json:"permalink"`
@@ -37,17 +41,19 @@ type Permalink struct {
 type Permalinks []Permalink
 
 func getList(category string) Permalinks {
-	res, err := Get(category)
-	MaybePanic(err)
-	defer res.Close()
-
 	l := make(Permalinks, 0)
-	list := &l
+	var page int
+	for {
+		list := make(Permalinks, 0)
+		MaybePanic(Get(category, page, &list))
 
-	err = json.NewDecoder(res).Decode(list)
-	MaybePanic(err)
+		if len(list) == 0 || len(l) > 0 && list[len(list)-1].Link == l[len(l)-1].Link {
+			break
+		}
 
-	return *list
+		page++
+	}
+	return l
 }
 
 func getVCList() Permalinks {
@@ -66,17 +72,10 @@ func wordPrefixes(s string) map[string]bool {
 }
 
 func getVC(permalink string) {
-	res, err := Get("financial-organization/" + permalink)
+	vc := &VC{}
+	err := Get("financial-organization/"+permalink, 0, vc)
 	if err != nil {
 		fmt.Println("getVC fetch error:", permalink, "-", err)
-		return
-	}
-	defer res.Close()
-
-	vc := new(VC)
-	err = json.NewDecoder(res).Decode(vc)
-	if err != nil {
-		fmt.Println("getVC parse error:", permalink, "-", err)
 		return
 	}
 
@@ -381,27 +380,52 @@ func MaybePanic(err error) {
 var doneCount int32 = 0
 var total int
 
-func Get(path string) (io.ReadCloser, error) {
+func Get(path string, page int, data interface{}) error {
+	var r io.Reader
+
 	if *remoteMode {
-		res, err := http.Get(apiURL(path + ".js"))
+		uri := apiURL(path + ".js")
+		if page > 0 {
+			uri += fmt.Sprintf("&page=%d", page)
+		}
+		res, err := http.Get(uri)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if res.StatusCode == 504 { // retry once
-			res, err = http.Get(apiURL(path + ".js"))
+			res, err = http.Get(uri)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		if res.StatusCode != 200 {
-			return nil, fmt.Errorf("get %s - incorrect response code received - %d", path, res.StatusCode)
+			return fmt.Errorf("get %s - incorrect response code received - %d", uri, res.StatusCode)
 		}
 		atomic.AddInt32(&doneCount, 1)
 		fmt.Printf("\r%d/%d", doneCount, total)
-		return res.Body, nil
+
+		defer res.Body.Close()
+		r = res.Body
+		if *save {
+			path := *dataPath + "/" + path
+			os.MkdirAll(filepath.Dir(path), os.ModePerm)
+			out, err := os.Create(path)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+			r = io.TeeReader(res.Body, out)
+		}
+	} else {
+		f, err := os.Open(*dataPath + "/" + path + ".json")
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		r = f
 	}
 
-	return os.Open(*dataPath + "/" + path + ".json")
+	return json.NewDecoder(r).Decode(data)
 }
 
 func fetcher(queue chan string, done chan bool) {
@@ -524,8 +548,25 @@ func main() {
 		go fetcher(queue, done)
 	}
 
-	list := getVCList()
+	var list Permalinks
+	if *firms != "" {
+		f, err := os.Open(*firms)
+		MaybePanic(err)
+
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			if scanner.Text() != "" {
+				list = append(list, Permalink{Link: scanner.Text()})
+			}
+		}
+		f.Close()
+		MaybePanic(scanner.Err())
+	} else {
+		list = getVCList()
+	}
+
 	total = len(list)
+	doneCount = 0
 	for _, vc := range list {
 		queue <- vc.Link
 	}
