@@ -26,6 +26,8 @@ const BaseURL = "http://api.crunchbase.com/v/1/"
 
 const MinYear = 2005
 
+var MaxYear = time.Now().Year()
+
 var apiKey = flag.String("key", "", "CrunchBase API key")
 var remoteMode = flag.Bool("remote", false, "Fetch from CrunchBase API instead of local filesystem")
 var dataPath = flag.String("path", "./data", "Path to local data on the filesystem")
@@ -136,14 +138,18 @@ func getVC(permalink string) {
 	vc.TotalCompanies = len(vc.RoundsByCompany)
 
 	vc.YearRoundSet = make(IntSlice, 0, len(vc.RoundsByYear))
-	for _, x := range vc.RoundsByYear {
-		vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
+	for year, x := range vc.RoundsByYear {
+		if year < MaxYear {
+			vc.YearRoundSet = append(vc.YearRoundSet, int64(x))
+		}
 	}
 	vc.YearRoundSet.Sort()
 
 	vc.YearCompanySet = make(IntSlice, 0, len(vc.CompaniesByYear))
-	for _, x := range vc.CompaniesByYear {
-		vc.YearCompanySet = append(vc.YearCompanySet, int64(x))
+	for year, x := range vc.CompaniesByYear {
+		if year < MaxYear {
+			vc.YearCompanySet = append(vc.YearCompanySet, int64(x))
+		}
 	}
 	vc.YearCompanySet.Sort()
 
