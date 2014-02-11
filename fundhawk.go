@@ -417,7 +417,7 @@ func Get(path string, page int, data interface{}) error {
 			r = io.TeeReader(res.Body, out)
 		}
 	} else {
-		f, err := os.Open(*dataPath + "/" + path + ".json")
+		f, err := os.Open(*dataPath + "/" + path)
 		if err != nil {
 			return err
 		}
