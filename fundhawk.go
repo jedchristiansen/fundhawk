@@ -128,7 +128,10 @@ func getVC(permalink string) {
 		}
 
 		IndexMutex.Lock()
-		RoundVCs[rid] = append(RoundVCs[rid], vc)
+		if _, exists := RoundVCs[rid]; !exists {
+			RoundVCs[rid] = make(map[*VC]struct{})
+		}
+		RoundVCs[rid][vc] = struct{}{}
 		Rounds[rid] = *r
 		IndexMutex.Unlock()
 	}
@@ -190,7 +193,7 @@ func calculateVCs() {
 		r := Rounds[rid]
 
 		agg := func(vc *VC) {
-			for _, v := range vcs {
+			for v := range vcs {
 				if v.Permalink == vc.Permalink {
 					continue
 				}
@@ -226,7 +229,7 @@ func calculateVCs() {
 			vc.PartnersByRound[r.Code] = append(vc.PartnersByRound[r.Code], int64(len(vcs))-1)
 		}
 
-		for _, vc := range vcs {
+		for vc := range vcs {
 			agg(vc)
 		}
 	}
@@ -370,7 +373,7 @@ var (
 var (
 	IndexMutex     = new(sync.RWMutex)
 	VCs            = make(map[string]*VC)
-	RoundVCs       = make(map[string][]*VC)
+	RoundVCs       = make(map[string]map[*VC]struct{})
 	Rounds         = make(map[string]Round)
 	vcNamePrefixes = make(map[string]WeightedIDs)
 	vcDataList     = [][]string{}
