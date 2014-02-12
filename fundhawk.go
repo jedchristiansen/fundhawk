@@ -106,6 +106,9 @@ func getVC(permalink string) {
 		}
 		rid := cp + ":" + strconv.Itoa(y) + ":" + r.Code
 
+		if r.Code == "debt_round" {
+			r.Code = "debt"
+		}
 		vc.RoundsByCode[r.Code] += 1
 
 		if r.Year != nil && *r.Year >= MinYear {
@@ -358,7 +361,7 @@ func (w WeightedIDs) Less(i, j int) bool {
 func (w WeightedIDs) Swap(i, j int) { w[i], w[j] = w[j], w[i] }
 
 var (
-	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G"}
+	RoundCodeBuckets  = []string{"Angel", "Seed", "A", "B", "C", "D", "E", "F", "G", "Debt", "Unattributed"}
 	RoundSizeBuckets  = Buckets("<100k", "100 - 500k", "500k - 1m", "1 - 3m", "3 - 5m", "5 - 10m", "10 - 30m", ">30m")
 	RoundShareBuckets = Buckets("<100k", "100 - 250k", "250k - 1m", "1 - 3m", "3 - 5m", "5 - 10m", "10 - 30m", ">30m")
 	RoundCountBuckets = Buckets("1", "2", "3", "4", "5", "6")
